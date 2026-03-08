@@ -1,4 +1,4 @@
-# GTI Public & Private Scanner Scripts
+# GTI Public & Private Scanner Scripts (Dev Branch)
 
 This repository contains two Python scripts for submitting files to VirusTotal's GTI (Global Threat Intelligence) public and private scanning APIs, retrieving scan reports, and verifying file integrity via SHA256 hash.
 
