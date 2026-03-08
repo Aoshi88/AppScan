@@ -3,9 +3,6 @@ import time
 import json
 import keyring
 
-#keyring.delete_password("softwareassessment","svc_synsoftwareassessment")
-keyring.set_password("softwareassessment","svc_synsoftwareassessment","929b4f5227bf3348bb5aa18cf531986b5a8f1abf2eb667ce502d276598dec260")
-
 print(f"\nThis scan will upload the file to public GTI, do not use for Synapxe or custom software installers!\n")
 print(f"All software must be in the same location from where this Python script is run\n")
 print(f"Filenames are case-sensitive\n")
