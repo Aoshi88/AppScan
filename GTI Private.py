@@ -21,9 +21,9 @@ locale = input("Locale? [default: EN_US]: ").strip() or "EN_US"
 
 # Mode selection
 print("Select an option:")
-print("  1 - Submit a file for GTI private scanning")
-print("  2 - Submit a file >200MB for GTI private scanning")
-print("  3 - Retrieve an existing report using a file ID")
+print("  1 - Submit a file less than 200MBfor GTI public scanning")
+print("  2 - Submit a file greater than 200MB for GTI public scanning")
+print("  3 - Retrieve a report using an ID")
 mode = input("Enter selection: ").strip()
 
 if mode not in ("1", "2", "3"):
@@ -94,7 +94,7 @@ elif mode == "2":
         exit(1)
 
     print(f"File submitted successfully. Analysis ID: {file_id}\n")
-    print("You may need to wait up to 5 minutes before retrieving the results of the report")
+    print("You may need to wait up to 15 minutes before retrieving the results of the report")
     exit(0)
 
 elif mode == "3":
@@ -118,17 +118,16 @@ if report_response.status_code != 200:
 # Display a summary of the results
 status = report.get("data", {}).get("attributes", {}).get("sandbox_verdicts", {}).get("Zenbox", {}).get("malware_classification", {})
 confidence = report.get("data", {}).get("attributes", {}).get("sandbox_verdicts", {}).get("Zenbox", {}).get("confidence", {})
-#status = report.get("data", {}).get("attributes", {}).get("status", "unknown")
 filehash = report.get("data", {}).get("id", {})
 
 # Compare against expected hash if provided
-#if EXPECTED_HASH:
-#    if filehash and filehash.lower() == EXPECTED_HASH:
-#        print(f"\n✅ Hash MATCH — file integrity verified.")
-#    else:
-#        print(f"\n❌ Hash MISMATCH! Suspect malicious modification to file, submit for further assessment or re-download the file from a trusted source")
-#        print(f"   Expected: {EXPECTED_HASH}")
-#        print(f"   Got:      {filehash}")
+if EXPECTED_HASH:
+    if filehash and filehash.lower() == EXPECTED_HASH:
+        print(f"\n✅ Hash MATCH — file integrity verified.")
+    else:
+        print(f"\n❌ Hash MISMATCH! Suspect malicious modification to file, submit for further assessment or re-download the file from a trusted source")
+        print(f"   Expected: {EXPECTED_HASH}")
+        print(f"   Got:      {filehash}")
 
 #Status will retrieve whether the file is clean according to Zenbox results
 print(f"\n--- Scan Report ---")
