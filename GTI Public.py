@@ -7,16 +7,15 @@ print(f"\nThis scan will upload the file to public GTI, do not use for Synapxe o
 print(f"All software must be in the same location from where this Python script is run\n")
 print(f"Filenames are case-sensitive\n")
 
-#API_KEY = input("Please enter the GTI API Key to authenticate for file scan upload:").strip()
-API_KEY = keyring.get_password("softwareassessment","svc_synsoftwareassessment").strip()
+API_KEY = keyring.get_password("softwareassessment","svc_synsoftwareassessment")
 FILE_PATH = input("Please enter the filename for file scan upload:").strip()
 EXPECTED_HASH = input("Enter SHA256 hash provided by the vendor to verify filehash (or press Enter to skip): ").strip().lower()
 
 # Mode selection
 print("Select an option:")
-print("  1 - Submit a file for GTI public scanning")
-print("  2 - Submit a file >200MB for GTI public scanning")
-print("  3 - Retrieve an existing report using a file ID")
+print("  1 - Submit a file less than 200MBfor GTI public scanning")
+print("  2 - Submit a file greater than 200MB for GTI public scanning")
+print("  3 - Retrieve a report using an ID")
 mode = input("Enter selection: ").strip()
 
 if mode not in ("1", "2", "3"):
@@ -72,10 +71,10 @@ elif mode == "2":
         print(f"Upload failed: {upload_result}")
         exit(1)
 
-    # Extract the file ID from the upload response
+    # Extract the  ID from the upload response
     file_id = upload_result.get("data", {}).get("id")
     if not file_id:
-        print("Could not retrieve file ID from upload response.")
+        print("Could not retrieve ID from upload response.")
         exit(1)
 
     print(f"File submitted successfully. Analysis ID: {file_id}")
