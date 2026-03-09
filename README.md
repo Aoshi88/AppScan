@@ -2,12 +2,14 @@
 
 This repository contains two Python scripts for submitting files to VirusTotal's GTI (Global Threat Intelligence) public and private scanning APIs, retrieving scan reports, and verifying file integrity via SHA256 hash.
 
+
 ## Files
 
 - **GTI Public.py**: Uploads files to VirusTotal's public GTI API for malware scanning. Supports files of any size, retrieves scan reports, and compares the file's hash to a vendor-provided value.
 - **GTI Private.py**: Uploads files to VirusTotal's private GTI API with additional sandboxing options (e.g., internet access, locale, TLS interception). Retrieves detailed sandbox verdicts and confidence levels.
+- **Set API.py**: Utility script for securely configuring the VirusTotal API key. Run this script to add or change the API key used by the scanner scripts, ensuring credentials are not hardcoded or exposed in source files.
 
-## Features
+## Features ##
 
 - Secure API key management using the `keyring` library.
 - Interactive prompts for file selection, hash verification, and scan/report options.
@@ -16,7 +18,7 @@ This repository contains two Python scripts for submitting files to VirusTotal's
 - Hash verification to ensure file integrity.
 - Private scan script allows advanced sandbox configuration.
 
-## Usage
+## Usage ##
 
 1. Place the script(s) and the file to be scanned in the same directory.
 2. Run the desired script:
@@ -26,16 +28,16 @@ This repository contains two Python scripts for submitting files to VirusTotal's
 4. For private scans, configure sandbox options as needed.
 5. Retrieve and review the scan report. The full JSON report is saved as `virustotal_report.txt`.
 
-## Requirements
+## Requirements ##
 
 - Python 3.x
 - `requests` library
 - `keyring` library
 
-## Notes
+## Notes ##
 - Do **not** use the public scan script for in-house or custom software.
 - Filenames are case-sensitive.
 - For large files (>200MB), select the appropriate mode when prompted.
 
-## Disclaimer
+## Disclaimer ##
 These scripts are for authorized use only. Ensure you comply with your organization's security policies and VirusTotal's terms of service.
