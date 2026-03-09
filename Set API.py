@@ -1,6 +1,6 @@
 import keyring
 
-print("This script will set the GTI Enterprise API key\n")
+print("\nThis script will set the GTI Enterprise API key\n")
 print("Enter the API key below, you may skip configuring the default service account name and system name\n")
 print("DO NOT LEAVE API key field empty!\n")
 
@@ -16,7 +16,7 @@ if mode not in ("1", "2", "3"):
     exit(1)
 
 if mode == "1":
-#declare variables for keyring
+#Add API key
     systemname_key = input("Please enter the system name [default: softwareassessment]: ").strip() or "softwareassessment"
     servicename_key = input("Please enter the service account name ([default: svc_synsoftwareassessment]): ").strip() or "svc_synsoftwareassessment"
     api_key = input("Please enter the GTI API key: ").strip()
@@ -43,7 +43,7 @@ elif mode == "2":
         print("Error: API key not found or cannot be deleted.")
 
 elif mode == "3":
-    # Retrieve API key for GTI
+    # Retrieve API key
     systemname_key = input("Please enter the system name [default: softwareassessment]: ").strip() or "softwareassessment"
     servicename_key = input("Please enter the service account name ([default: svc_synsoftwareassessment]): ").strip() or "svc_synsoftwareassessment"
     api_key = keyring.get_password(systemname_key, servicename_key)
