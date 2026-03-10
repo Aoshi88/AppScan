@@ -86,7 +86,10 @@ class CloudflareURLScanner:
         response = requests.post(url, headers=self.headers, json=payload)
         response.raise_for_status()
 
-        return response.json().get("result", response.json())
+        response_data = response.json()
+        if isinstance(response_data, dict):
+            return response_data.get("result", response_data)
+        return response_data
 
     def submit_urls_bulk(self, urls: List[str]) -> Dict[str, Any]:
         """
@@ -111,7 +114,10 @@ class CloudflareURLScanner:
         response = requests.post(url, headers=self.headers, json=payload)
         response.raise_for_status()
 
-        return response.json().get("result", response.json())
+        response_data = response.json()
+        if isinstance(response_data, dict):
+            return response_data.get("result", response_data)
+        return response_data
 
     def get_scan_result(self, scan_id: str, poll: bool = False, 
                        poll_interval: int = 10, max_polls: int = 180) -> Dict[str, Any]:
@@ -136,7 +142,10 @@ class CloudflareURLScanner:
         if not poll:
             response = requests.get(url, headers=self.headers)
             response.raise_for_status()
-            return response.json().get("result", response.json())
+            response_data = response.json()
+            if isinstance(response_data, dict):
+                return response_data.get("result", response_data)
+            return response_data
 
         # Polling mode
         for poll_count in range(max_polls):
@@ -144,7 +153,10 @@ class CloudflareURLScanner:
 
             if response.status_code == 200:
                 print(f"Scan completed after {poll_count} polls")
-                return response.json().get("result", response.json())
+                response_data = response.json()
+                if isinstance(response_data, dict):
+                    return response_data.get("result", response_data)
+                return response_data
 
             if response.status_code == 404:
                 print(f"Poll {poll_count + 1}/{max_polls}: Scan in progress...")
@@ -178,7 +190,10 @@ class CloudflareURLScanner:
         response = requests.get(url, headers=self.headers, params=params)
         response.raise_for_status()
 
-        return response.json().get("result", response.json())
+        response_data = response.json()
+        if isinstance(response_data, dict):
+            return response_data.get("result", response_data)
+        return response_data
 
 
 def load_account_id_from_env() -> Optional[str]:
@@ -276,52 +291,14 @@ def submit_single_url(scanner: CloudflareURLScanner):
         result = scanner.submit_url(config)
         
         print("\n✓ URL submitted successfully!")
-        print(f"  Scan ID (UUID): {result.get('uuid')}")
-        print(f"  Visibility: {result.get('visibility')}")
-        print(f"  Message: {result.get('message')}")
-        
-    except requests.RequestException as e:
-        print(f"\n✗ API Error: {e}")
-        if hasattr(e, 'response') and hasattr(e.response, 'text'):
-            print(f"  Response: {e.response.text}")
-
-
-def submit_multiple_urls(scanner: CloudflareURLScanner):
-    """Submit multiple URLs for scanning"""
-    print("\n" + "-"*80)
-    print("SUBMIT MULTIPLE URLS FOR SCANNING (Max 100)")
-    print("-"*80 + "\n")
-    
-    print("Enter URLs (one per line, empty line to finish):")
-    urls = []
-    count = 1
-    
-    while True:
-        url = input(f"URL {count}: ").strip()
-        if not url:
-            break
-        
-        # Ensure URL has a scheme
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-        
-        urls.append(url)
-        count += 1
-    
-    if not urls:
-        print("No URLs entered.")
-        return
-    
-    if len(urls) > 100:
-        print(f"Error: Maximum 100 URLs allowed. You entered {len(urls)}")
-        return
-    
-    try:
-        print(f"\nSubmitting {len(urls)} URLs for scanning...")
-        result = scanner.submit_urls_bulk(urls)
-        
-        print(f"\n✓ {len(urls)} URLs submitted successfully!")
-        print(json.dumps(result, indent=2))
+        if isinstance(result, dict):
+            print(f"  Scan ID: {result.get('id', result.get('uuid', 'N/A'))}")
+            if result.get('visibility'):
+                print(f"  Visibility: {result.get('visibility')}")
+            if result.get('job_priority'):
+                print(f"  Priority: {result.get('job_priority')}")
+        else:
+            print(f"  Response: {result}")
         
     except requests.RequestException as e:
         print(f"\n✗ API Error: {e}")
@@ -350,25 +327,28 @@ def get_scan_result(scanner: CloudflareURLScanner):
         )
         
         print("\n✓ Scan result retrieved!")
-        task = result.get('task', {})
-        print(f"  Status: {task.get('status')}")
-        print(f"  Success: {task.get('success')}")
-        print(f"  URL: {task.get('url')}")
-        
-        # Show additional details if scan is complete
-        if task.get('success'):
-            page = result.get('page', {})
-            meta = result.get('meta', {})
-            print(f"\n  Page URL: {page.get('url')}")
-            print(f"  Country: {page.get('country')}")
-            print(f"  IP Address: {page.get('ip')}")
+        if isinstance(result, dict):
+            task = result.get('task', {})
+            print(f"  Status: {task.get('status')}")
+            print(f"  Success: {task.get('success')}")
+            print(f"  URL: {task.get('url')}")
             
-            if meta.get('processors'):
-                print(f"  Technologies: {len(meta['processors'].get('wappa', []))} detected")
-        
-        full_output = input("\nDisplay full result JSON? (yes/no) [default: no]: ").strip().lower() in ["yes", "y"]
-        if full_output:
-            print(json.dumps(result, indent=2))
+            # Show additional details if scan is complete
+            if task.get('success'):
+                page = result.get('page', {})
+                meta = result.get('meta', {})
+                print(f"\n  Page URL: {page.get('url')}")
+                print(f"  Country: {page.get('country')}")
+                print(f"  IP Address: {page.get('ip')}")
+                
+                if meta.get('processors'):
+                    print(f"  Technologies: {len(meta['processors'].get('wappa', []))} detected")
+            
+            full_output = input("\nDisplay full result JSON? (yes/no) [default: no]: ").strip().lower() in ["yes", "y"]
+            if full_output:
+                print(json.dumps(result, indent=2))
+        else:
+            print(f"  Response: {result}")
         
     except requests.RequestException as e:
         print(f"\n✗ API Error: {e}")
@@ -398,7 +378,10 @@ def search_scans(scanner: CloudflareURLScanner):
         result = scanner.search_scans(query)
         
         print("\n✓ Search completed!")
-        print(json.dumps(result, indent=2))
+        if isinstance(result, (dict, list)):
+            print(json.dumps(result, indent=2))
+        else:
+            print(result)
         
     except requests.RequestException as e:
         print(f"\n✗ API Error: {e}")
@@ -424,27 +407,24 @@ def main():
         print("SELECT AN OPTION:")
         print("="*80)
         print("  1 - Submit a single URL for scanning")
-        print("  2 - Submit multiple URLs for scanning (bulk)")
-        print("  3 - Retrieve scan results")
-        print("  4 - Search scans")
-        print("  5 - Exit")
+        print("  2 - Retrieve scan results")
+        print("  3 - Search scans")
+        print("  4 - Exit")
         print()
         
-        choice = input("Enter selection (1-5): ").strip()
+        choice = input("Enter selection (1-4): ").strip()
         
         if choice == "1":
             submit_single_url(scanner)
         elif choice == "2":
-            submit_multiple_urls(scanner)
-        elif choice == "3":
             get_scan_result(scanner)
-        elif choice == "4":
+        elif choice == "3":
             search_scans(scanner)
-        elif choice == "5":
+        elif choice == "4":
             print("\n✓ Exiting...\n")
             break
         else:
-            print("Invalid option. Please enter a number between 1-5.")
+            print("Invalid option. Please enter a number between 1-4.")
     
     return 0
 
