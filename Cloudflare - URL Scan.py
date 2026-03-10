@@ -11,6 +11,7 @@ Documentation: https://developers.cloudflare.com/radar/investigate/url-scanner/
 import requests
 import json
 import time
+import keyring
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
 
@@ -196,14 +197,35 @@ class CloudflareURLScanner:
         return response_data
 
 
-def load_account_id_from_env() -> Optional[str]:
+def get_api_credentials_from_keyring(service_name: str = "svc_urlscanner") -> tuple[str, str]:
     """
-    Load account ID from environment variable (optional).
-
+    Retrieve Cloudflare API credentials from keyring.
+    
+    Args:
+        service_name: The service name in keyring (default: "svc_urlscanner")
+    
     Returns:
-        Account ID if set, otherwise None
+        Tuple of (api_token, account_id)
+    
+    Raises:
+        ValueError: If credentials are not found in keyring
     """
-    return None  # No longer using environment variables
+    api_token = keyring.get_password(service_name, "api_token")
+    account_id = keyring.get_password(service_name, "account_id")
+    
+    if not api_token:
+        raise ValueError(
+            "Cloudflare API Token not found in keyring.\n"
+            "Please run 'Set API.py' to configure your credentials."
+        )
+    
+    if not account_id:
+        raise ValueError(
+            "Cloudflare Account ID not found in keyring.\n"
+            "Please run 'Set API.py' to configure your credentials."
+        )
+    
+    return api_token, account_id
 
 
 def print_header():
@@ -213,22 +235,6 @@ def print_header():
     print("="*80 + "\n")
     print("This script allows you to submit URLs for scanning to Cloudflare Radar.")
     print("Scans will analyze websites for security threats, technologies, and metadata.\n")
-
-
-def get_api_credentials() -> tuple[str, str]:
-    """Get API token and account ID from user input"""
-    print("Cloudflare API Credentials:")
-    print("(Find your Account ID in Cloudflare dashboard > Account Home > Account ID)\n")
-    
-    api_token = input("Enter Cloudflare API Token: ").strip()
-    if not api_token:
-        raise ValueError("API Token cannot be empty")
-    
-    account_id = input("Enter Cloudflare Account ID: ").strip()
-    if not account_id:
-        raise ValueError("Account ID cannot be empty")
-    
-    return api_token, account_id
 
 
 def get_screenshot_options() -> Optional[List[str]]:
@@ -394,12 +400,12 @@ def main():
     print_header()
     
     try:
-        api_token, account_id = get_api_credentials()
+        api_token, account_id = get_api_credentials_from_keyring()
     except ValueError as e:
         print(f"Error: {e}")
         return 1
     
-    # Test API credentials
+    # Initialize scanner with retrieved credentials
     scanner = CloudflareURLScanner(api_token, account_id)
     
     while True:
