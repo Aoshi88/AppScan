@@ -150,7 +150,9 @@ class CloudflareURLScanner:
 
         # Polling mode
         for poll_count in range(max_polls):
-            response = requests.get(url, headers=self.headers)
+             if not url.startswith(('https://', 'http://')):
+                raise ValueError("URL must start with https:// or http://")
+                response = requests.get(url, headers=self.headers)
 
             if response.status_code == 200:
                 print(f"Scan completed after {poll_count} polls")
