@@ -386,15 +386,6 @@ def get_urls_from_input() -> List[str]:
 
 def retrieve_scan_by_uuid(scanner: 'URLScanIOScanner', uuid: str) -> bool:
     """Retrieve and display scan results by UUID"""
-    # Validate UUID format (simple check for UUID v4)
-    import re
-    uuid_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
-    
-    if not re.match(uuid_pattern, uuid.lower()):
-        print(f"❌ Invalid UUID format: {uuid}")
-        print("   Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
-        return False
-    
     print(f"\n[*] Retrieving scan results for UUID: {uuid}")
     
     results = scanner.get_results(uuid)
@@ -447,16 +438,6 @@ def get_scan_report_by_uuid(uuid: str, display_summary: bool = True, save_to_fil
     Returns:
         Dictionary containing scan results, or None if failed
     """
-    import re
-    
-    # Validate UUID format
-    uuid_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
-    
-    if not re.match(uuid_pattern, uuid.lower()):
-        print(f"❌ Invalid UUID format: {uuid}")
-        print("   Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
-        return None
-    
     # Initialize scanner
     scanner = URLScanIOScanner()
     
