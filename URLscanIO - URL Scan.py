@@ -384,6 +384,38 @@ def get_urls_from_input() -> List[str]:
     return urls
 
 
+def retrieve_scan_by_uuid(scanner: 'URLScanIOScanner', uuid: str) -> bool:
+    """Retrieve and display scan results by UUID"""
+    # Validate UUID format (simple check for UUID v4)
+    import re
+    uuid_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+    
+    if not re.match(uuid_pattern, uuid.lower()):
+        print(f"❌ Invalid UUID format: {uuid}")
+        print("   Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+        return False
+    
+    print(f"\n[*] Retrieving scan results for UUID: {uuid}")
+    
+    results = scanner.get_results(uuid)
+    
+    if results:
+        # Check if the scan is complete
+        if results.get("status") == 200:
+            print(f"[+] Scan results retrieved successfully!")
+            print_summary(results)
+            save_results(results)
+            return True
+        else:
+            print(f"[*] Scan status: {results.get('status', 'Unknown')}")
+            if results.get("status") == 0:
+                print("   Scan is still in progress or pending")
+            return False
+    else:
+        print(f"[-] Failed to retrieve scan results for UUID: {uuid}")
+        return False
+
+
 def get_urls_from_file(filename: str) -> List[str]:
     """Read URLs from a text file (one URL per line)"""
     try:
@@ -417,6 +449,37 @@ def main():
         print("   Please run 'Set API - URLScan.py' first to configure your URLSCAN.io API key")
         sys.exit(1)
     
+    # Main menu
+    print("\n" + "-"*80)
+    print("Main Menu")
+    print("-"*80)
+    print("  1 - Submit new URLs for scanning")
+    print("  2 - Retrieve existing scan by UUID")
+    print("  3 - Exit")
+    
+    main_choice = input("\nSelect option (1-3): ").strip()
+    
+    if main_choice == "1":
+        # Submit new URLs workflow
+        submit_new_urls(scanner)
+    elif main_choice == "2":
+        # Retrieve single scan
+        uuid = input("\nEnter Scan UUID (e.g., 68e26c59-2eae-437b-aeb1-cf750fafe7d7): ").strip()
+        if uuid:
+            retrieve_scan_by_uuid(scanner, uuid)
+        else:
+            print("❌ No UUID provided")
+            sys.exit(1)
+    elif main_choice == "3":
+        print("\n✅ Goodbye!\n")
+        sys.exit(0)
+    else:
+        print("❌ Invalid option")
+        sys.exit(1)
+
+
+def submit_new_urls(scanner: 'URLScanIOScanner'):
+    """Workflow for submitting new URLs for scanning"""
     print("\n" + "-"*80)
     print("Import Options")
     print("-"*80)
