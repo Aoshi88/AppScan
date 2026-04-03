@@ -6,11 +6,10 @@ This script submits URLs to urlscan.io for scanning and retrieves the scan resul
 The API key is retrieved from the system keyring as configured by "Set API - URLScan.py"
 
 Features:
-  - Submit single or multiple URLs for scanning
+  - Submit single URLs for scanning
   - Poll for scan completion
   - Display formatted scan results
   - Export results to JSON file
-  - Support for batch scanning
 
 Requirements:
   - requests library: pip install requests
@@ -37,7 +36,7 @@ class URLScanIOScanner:
     SERVICE_NAME = "svc_urlscan"
     API_KEY_NAME = "api_key"
     
-    def __init__(self, timeout: int = 30, max_wait: int = 120, poll_interval: int = 5):
+    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 10):
         """
         Initialize URLSCAN.io scanner client
         
@@ -180,6 +179,39 @@ class URLScanIOScanner:
             print(f"[-] Error retrieving results: {e}")
             return None
     
+    def get_scan_report(self, uuid: str, verbose: bool = True) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve complete scan report by UUID
+        
+        Args:
+            uuid: The UUID of the scan
+            verbose: If True, print status messages (default: True)
+        
+        Returns:
+            Dictionary containing the full scan report, or None if failed
+        """
+        if verbose:
+            print(f"[*] Retrieving scan report for UUID: {uuid}")
+        
+        results = self.get_results(uuid)
+        
+        if results:
+            status = results.get("status", 0)
+            if status == 200:
+                if verbose:
+                    print(f"[+] Scan report retrieved successfully!")
+                return results
+            else:
+                if verbose:
+                    print(f"[*] Scan status: {status}")
+                    if status == 0:
+                        print("   Scan is still in progress or pending")
+                return results
+        else:
+            if verbose:
+                print(f"[-] Failed to retrieve scan report for UUID: {uuid}")
+            return None
+    
     def wait_for_results(self, uuid: str) -> Optional[Dict[str, Any]]:
         """
         Poll for scan results until completion or timeout
@@ -254,39 +286,7 @@ class URLScanIOScanner:
             print(f"[-] Failed to retrieve scan results")
             return None
     
-    def scan_urls(self, urls: List[str], visibility: str = "public", country: Optional[str] = None) -> List[Dict[str, Any]]:
-        """
-        Submit multiple URLs for scanning and wait for all results
-        
-        Args:
-            urls: List of URLs to scan
-            visibility: Visibility of the scans - "public", "unlisted", or "private" (default: "public")
-            country: ISO 3166-1 alpha-2 country code for scanning location (optional)
-        
-        Returns:
-            List of scan results
-        """
-        all_results = []
-        failed_urls = []
-        
-        for i, url in enumerate(urls, 1):
-            print(f"\n{'='*80}")
-            print(f"Scanning URL {i}/{len(urls)}")
-            print(f"{'='*80}")
-            
-            result = self.scan_url(url, visibility=visibility, country=country)
-            
-            if result:
-                all_results.append(result)
-            else:
-                failed_urls.append(url)
-        
-        if failed_urls:
-            print(f"\n⚠️  Failed to scan {len(failed_urls)} URL(s):")
-            for url in failed_urls:
-                print(f"   - {url}")
-        
-        return all_results
+
 
 
 def print_summary(results: Dict[str, Any]) -> None:
@@ -435,6 +435,52 @@ def get_urls_from_file(filename: str) -> List[str]:
         return []
 
 
+def get_scan_report_by_uuid(uuid: str, display_summary: bool = True, save_to_file: bool = True) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve and optionally display a scan report by UUID
+    
+    Args:
+        uuid: The UUID of the scan to retrieve
+        display_summary: If True, print formatted summary of results (default: True)
+        save_to_file: If True, save results to JSON file (default: True)
+    
+    Returns:
+        Dictionary containing scan results, or None if failed
+    """
+    import re
+    
+    # Validate UUID format
+    uuid_pattern = r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$'
+    
+    if not re.match(uuid_pattern, uuid.lower()):
+        print(f"❌ Invalid UUID format: {uuid}")
+        print("   Expected format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx")
+        return None
+    
+    # Initialize scanner
+    scanner = URLScanIOScanner()
+    
+    if not scanner.api_key:
+        print("❌ Cannot retrieve scan report without API key")
+        print("   Please configure your API key using 'Set API - URLScan.py'")
+        return None
+    
+    # Get the report
+    report = scanner.get_scan_report(uuid, verbose=True)
+    
+    if report:
+        if display_summary:
+            print_summary(report)
+        
+        if save_to_file:
+            save_results(report)
+        
+        return report
+    else:
+        return None
+
+
+
 def main():
     """Main function"""
     print("\n" + "="*80)
@@ -502,7 +548,11 @@ def submit_new_urls(scanner: 'URLScanIOScanner'):
         print("❌ No URLs provided")
         sys.exit(1)
     
-    print(f"\n✅ Total URLs to scan: {len(urls)}")
+    if len(urls) > 1:
+        print("⚠️  Only single URL scanning is supported. Using first URL.")
+        urls = urls[:1]
+    
+    print(f"\n✅ Scanning URL: {urls[0]}")
     
     # Ask for visibility option
     print("\nVisibility options:")
@@ -522,30 +572,13 @@ def submit_new_urls(scanner: 'URLScanIOScanner'):
     print("STARTING SCANS")
     print("="*80)
     
-    if len(urls) == 1:
-        results = scanner.scan_url(urls[0], visibility=visibility, country=country)
-        if results:
-            print_summary(results)
-            save_results(results)
+    results = scanner.scan_url(urls[0], visibility=visibility, country=country)
+    if results:
+        print_summary(results)
+        save_results(results)
     else:
-        all_results = scanner.scan_urls(urls, visibility=visibility, country=country)
-        
-        if all_results:
-            print("\n" + "="*80)
-            print(f"SCANNING COMPLETED ({len(all_results)} successful)")
-            print("="*80)
-            
-            # Show summaries
-            for i, result in enumerate(all_results, 1):
-                print(f"\n--- Result {i} ---")
-                print_summary(result)
-            
-            # Save all results
-            all_results_filename = f"urlscan_results_batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-            save_results({"results": all_results, "count": len(all_results), "timestamp": datetime.now().isoformat()}, all_results_filename)
-        else:
-            print("❌ No successful scans completed")
-            sys.exit(1)
+        print("❌ Scan failed")
+        sys.exit(1)
     
     print("\n✅ Scanning completed!")
 
