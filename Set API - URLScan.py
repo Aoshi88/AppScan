@@ -47,7 +47,7 @@ def urlscan_set_api_key(service_name, api_key_name):
     print_section("SET URLSCAN.IO API KEY")
     
     # Get service name
-    custom_service = input(f"Enter service name [default: svc_urlscanner]: ").strip() or "svc_urlscanner"
+    custom_service = input(f"Enter service name [{service_name}]: ").strip() or service_name
     
     # Get API key
     print("\nℹ️  You can get your API key from: https://urlscan.io/user/profile/")
