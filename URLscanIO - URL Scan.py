@@ -33,7 +33,7 @@ from datetime import datetime
 class URLScanIOScanner:
     """Client for URLSCAN.io URL submission and result retrieval"""
     
-    BASE_URL = "https://urlscan.io/api/v3"
+    BASE_URL = "https://urlscan.io"
     SERVICE_NAME = "svc_urlscan"
     API_KEY_NAME = "api_key"
     
@@ -77,14 +77,20 @@ class URLScanIOScanner:
             print(f"❌ Error loading API key from keyring: {e}")
             return False
     
-    def submit_url(self, url: str, public: bool = False, custom_agent: Optional[str] = None) -> Optional[str]:
+    def submit_url(self, url: str, visibility: str = "public", country: Optional[str] = None, 
+                   tags: Optional[List[str]] = None, override_safety: bool = False, 
+                   referer: Optional[str] = None, custom_agent: Optional[str] = None) -> Optional[str]:
         """
         Submit a URL for scanning
         
         Args:
             url: The URL to scan
-            public: Whether the scan should be public (default: False)
-            custom_agent: Custom user agent string (optional)
+            visibility: Visibility of the scan - "public", "unlisted", or "private" (default: "public")
+            country: ISO 3166-1 alpha-2 country code for scanning location (optional)
+            tags: List of user-defined tags to annotate the scan (max 10, optional)
+            override_safety: If True, disables reclassification of URLs with potential PII (default: False)
+            referer: Override HTTP referer for this scan (optional)
+            custom_agent: Override HTTP User-Agent for this scan (optional)
         
         Returns:
             UUID of the scan if successful, None if failed
@@ -93,18 +99,34 @@ class URLScanIOScanner:
             print("❌ Error: API key not loaded")
             return None
         
+        # Validate visibility parameter
+        if visibility not in ["public", "unlisted", "private"]:
+            print(f"❌ Error: Invalid visibility '{visibility}'. Must be 'public', 'unlisted', or 'private'")
+            return None
+        
         payload = {
             "url": url,
-            "public": "on" if public else "off"
+            "visibility": visibility
         }
         
+        if country:
+            payload["country"] = country.lower()
+        if tags:
+            if len(tags) > 10:
+                print("⚠️  Warning: Maximum 10 tags allowed, truncating to first 10")
+                tags = tags[:10]
+            payload["tags"] = tags
+        if override_safety:
+            payload["overrideSafety"] = True
+        if referer:
+            payload["referer"] = referer
         if custom_agent:
             payload["customagent"] = custom_agent
         
         try:
             print(f"[*] Submitting URL for scanning: {url}")
             response = requests.post(
-                f"{self.BASE_URL}/scan/",
+                f"{self.BASE_URL}/api/v1/scan",
                 json=payload,
                 headers=self.headers,
                 timeout=self.timeout
@@ -147,7 +169,7 @@ class URLScanIOScanner:
         
         try:
             response = requests.get(
-                f"{self.BASE_URL}/result/{uuid}/",
+                f"{self.BASE_URL}/api/v1/result/{uuid}/",
                 headers=self.headers,
                 timeout=self.timeout
             )
@@ -202,18 +224,22 @@ class URLScanIOScanner:
                 print(f"[-] Error during polling: {e}")
                 time.sleep(self.poll_interval)
     
-    def scan_url(self, url: str, public: bool = False) -> Optional[Dict[str, Any]]:
+    def scan_url(self, url: str, visibility: str = "public", country: Optional[str] = None,
+                tags: Optional[List[str]] = None, referer: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Complete workflow: submit URL and wait for results
         
         Args:
             url: The URL to scan
-            public: Whether the scan should be public (default: False)
+            visibility: Visibility of the scan - "public", "unlisted", or "private" (default: "public")
+            country: ISO 3166-1 alpha-2 country code for scanning location (optional)
+            tags: List of user-defined tags to annotate the scan (max 10, optional)
+            referer: Override HTTP referer for this scan (optional)
         
         Returns:
             Dictionary containing scan results, or None if failed
         """
-        uuid = self.submit_url(url, public=public)
+        uuid = self.submit_url(url, visibility=visibility, country=country, tags=tags, referer=referer)
         
         if not uuid:
             print(f"[-] Failed to submit URL")
@@ -228,13 +254,14 @@ class URLScanIOScanner:
             print(f"[-] Failed to retrieve scan results")
             return None
     
-    def scan_urls(self, urls: List[str], public: bool = False) -> List[Dict[str, Any]]:
+    def scan_urls(self, urls: List[str], visibility: str = "public", country: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Submit multiple URLs for scanning and wait for all results
         
         Args:
             urls: List of URLs to scan
-            public: Whether scans should be public (default: False)
+            visibility: Visibility of the scans - "public", "unlisted", or "private" (default: "public")
+            country: ISO 3166-1 alpha-2 country code for scanning location (optional)
         
         Returns:
             List of scan results
@@ -247,7 +274,7 @@ class URLScanIOScanner:
             print(f"Scanning URL {i}/{len(urls)}")
             print(f"{'='*80}")
             
-            result = self.scan_url(url, public=public)
+            result = self.scan_url(url, visibility=visibility, country=country)
             
             if result:
                 all_results.append(result)
@@ -414,9 +441,18 @@ def main():
     
     print(f"\n✅ Total URLs to scan: {len(urls)}")
     
-    # Ask for public scan option
-    public_input = input("\nMake scans public? (y/n) [n]: ").strip().lower()
-    public = public_input == 'y'
+    # Ask for visibility option
+    print("\nVisibility options:")
+    print("  1 - public   (visible to everyone)")
+    print("  2 - unlisted (not searchable, but accessible via link)")
+    print("  3 - private  (only visible to your account)")
+    visibility_choice = input("\nSelect visibility (1-3) [1]: ").strip()
+    
+    visibility_map = {"1": "public", "2": "unlisted", "3": "private"}
+    visibility = visibility_map.get(visibility_choice, "public")
+    
+    # Ask for country option
+    country = input("\nScan from specific country? (e.g., us, de, jp) [random]: ").strip().lower() or None
     
     # Start scanning
     print("\n" + "="*80)
@@ -424,12 +460,12 @@ def main():
     print("="*80)
     
     if len(urls) == 1:
-        results = scanner.scan_url(urls[0], public=public)
+        results = scanner.scan_url(urls[0], visibility=visibility, country=country)
         if results:
             print_summary(results)
             save_results(results)
     else:
-        all_results = scanner.scan_urls(urls, public=public)
+        all_results = scanner.scan_urls(urls, visibility=visibility, country=country)
         
         if all_results:
             print("\n" + "="*80)
