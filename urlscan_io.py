@@ -36,14 +36,14 @@ class URLScanIOScanner:
     SERVICE_NAME = "svc_urlscan"
     API_KEY_NAME = "api_key"
     
-    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 10):
+    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 2):
         """
         Initialize URLSCAN.io scanner client
         
         Args:
             timeout: Request timeout in seconds (default: 30)
-            max_wait: Maximum time to wait for scan completion in seconds (default: 120)
-            poll_interval: Interval between polls in seconds (default: 5)
+            max_wait: Maximum time to wait for scan completion in seconds (default: 600)
+            poll_interval: Interval between polls in seconds (default: 2)
         """
         self.timeout = timeout
         self.max_wait = max_wait
@@ -196,16 +196,14 @@ class URLScanIOScanner:
         results = self.get_results(uuid)
         
         if results:
-            status = results.get("status", 0)
-            if status == 200:
+            if "page" in results or "data" in results:
                 if verbose:
                     print(f"[+] Scan report retrieved successfully!")
                 return results
             else:
                 if verbose:
-                    print(f"[*] Scan status: {status}")
-                    if status == 0:
-                        print("   Scan is still in progress or pending")
+                    print(f"[*] Scan is still in progress or pending")
+                    print(f"   Available fields: {', '.join(results.keys())}")
                 return results
         else:
             if verbose:
@@ -226,6 +224,8 @@ class URLScanIOScanner:
         poll_count = 0
         
         print(f"\n[*] Waiting for scan to complete (max {self.max_wait}s)...")
+        print(f"[*] Initial wait before polling: 10s...")
+        time.sleep(10)
         
         while True:
             elapsed = time.time() - start_time
@@ -235,26 +235,25 @@ class URLScanIOScanner:
                 return None
             
             try:
-                print(f"[*] Checking status... (attempt {poll_count + 1}, elapsed: {int(elapsed)}s)")
+                print(f"[*] Checking results... (attempt {poll_count + 1}, elapsed: {int(elapsed)}s)")
                 results = self.get_results(uuid)
                 
-                if results and "status" in results:
-                    status = results.get("status", 0)
-                    
-                    if status == 200:
+                if results:
+                    if "page" in results or "data" in results:
                         print(f"[+] Scan completed successfully!")
                         return results
                     else:
                         print(f"[*] Scan in progress...")
                 else:
-                    print(f"[*] Waiting for scan to start...")
+                    print(f"[*] Waiting for scan results...")
                 
                 poll_count += 1
-                time.sleep(self.poll_interval)
+                if elapsed < self.max_wait:
+                    time.sleep(2)
                 
             except Exception as e:
                 print(f"[-] Error during polling: {e}")
-                time.sleep(self.poll_interval)
+                time.sleep(2)
     
     def scan_url(self, url: str, visibility: str = "public", country: Optional[str] = None,
                 tags: Optional[List[str]] = None, referer: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -391,16 +390,14 @@ def retrieve_scan_by_uuid(scanner: 'URLScanIOScanner', uuid: str) -> bool:
     results = scanner.get_results(uuid)
     
     if results:
-        # Check if the scan is complete
-        if results.get("status") == 200:
+        if "page" in results or "data" in results:
             print(f"[+] Scan results retrieved successfully!")
             print_summary(results)
             save_results(results)
             return True
         else:
-            print(f"[*] Scan status: {results.get('status', 'Unknown')}")
-            if results.get("status") == 0:
-                print("   Scan is still in progress or pending")
+            print(f"[*] Scan is still in progress or pending")
+            print(f"   Available fields: {', '.join(results.keys())}")
             return False
     else:
         print(f"[-] Failed to retrieve scan results for UUID: {uuid}")
