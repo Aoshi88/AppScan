@@ -222,72 +222,7 @@ def urlscan_delete_api_key(service_name, api_key_name):
         return False
 
 
-def urlscan_test_api_key(service_name, api_key_name):
-    """Test the URLSCAN.io API key connectivity"""
-    print_section("TEST URLSCAN.IO API KEY")
-    
-    try:
-        import requests
-    except ImportError:
-        print("❌ Error: 'requests' library is required to test API connectivity")
-        print("   Install it with: pip install requests\n")
-        return False
-    
-    api_key = keyring.get_password(service_name, api_key_name)
-    
-    if not api_key:
-        print(f"❌ No API key found for service: {service_name}\n")
-        return False
-    
-    print(f"Testing API key for service: {service_name}...")
-    print("Connecting to URLSCAN.io API...\n")
-    
-    try:
-        headers = {
-            "API-Key": api_key,
-            "Content-Type": "application/json"
-        }
-        
-        response = requests.get(
-            "https://urlscan.io/api/v3/quota/",
-            headers=headers,
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            quota_data = response.json()
-            print(f"✅ API Key is valid!\n")
-            print(f"   Service: {service_name}")
-            print(f"   API Status: Connected")
-            
-            if "quota" in quota_data:
-                quota = quota_data.get("quota", {})
-                print(f"\n   Quota Information:")
-                print(f"   - Limit: {quota.get('limit', 'N/A')}")
-                print(f"   - Remaining: {quota.get('remaining', 'N/A')}")
-                print(f"   - Reset: {quota.get('resetTime', 'N/A')}\n")
-            
-            return True
-        elif response.status_code == 401:
-            print(f"❌ Unauthorized: Invalid or expired API key\n")
-            print(f"   Status Code: {response.status_code}")
-            print(f"   Please verify your API key and try again.\n")
-            return False
-        else:
-            print(f"❌ API returned status code: {response.status_code}\n")
-            print(f"   Response: {response.text}\n")
-            return False
-            
-    except requests.exceptions.Timeout:
-        print(f"❌ Error: Request timeout. Please check your internet connection.\n")
-        return False
-    except requests.exceptions.ConnectionError:
-        print(f"❌ Error: Cannot connect to URLSCAN.io API.\n")
-        print(f"   Please check your internet connection or try again later.\n")
-        return False
-    except Exception as e:
-        print(f"❌ Error testing API key: {e}\n")
-        return False
+
 
 
 def urlscan_menu():
@@ -303,10 +238,9 @@ def urlscan_menu():
         print("  1 - Set API Key")
         print("  2 - Retrieve API Key")
         print("  3 - Delete API Key")
-        print("  4 - Test API Key")
-        print("  5 - Back to main menu")
+        print("  4 - Back to main menu")
         
-        choice = input("\nEnter selection (1-5): ").strip()
+        choice = input("\nEnter selection (1-4): ").strip()
         
         if choice == "1":
             urlscan_set_api_key(service_name, api_key_name)
@@ -315,11 +249,9 @@ def urlscan_menu():
         elif choice == "3":
             urlscan_delete_api_key(service_name, api_key_name)
         elif choice == "4":
-            urlscan_test_api_key(service_name, api_key_name)
-        elif choice == "5":
             return
         else:
-            print("❌ Invalid option. Please enter 1-5.\n")
+            print("❌ Invalid option. Please enter 1-4.\n")
             input("Press Enter to continue...")
             continue
         

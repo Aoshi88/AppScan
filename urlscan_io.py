@@ -36,7 +36,7 @@ class URLScanIOScanner:
     SERVICE_NAME = "svc_urlscan_io"
     API_KEY_NAME = "api_key"
     
-    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 2):
+    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 30):
         """
         Initialize URLSCAN.io scanner client
         
