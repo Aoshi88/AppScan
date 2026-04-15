@@ -33,7 +33,7 @@ class URLScanIOScanner:
     """Client for URLSCAN.io URL submission and result retrieval"""
     
     BASE_URL = "https://urlscan.io"
-    SERVICE_NAME = "svc_urlscan"
+    SERVICE_NAME = "svc_urlscan_io"
     API_KEY_NAME = "api_key"
     
     def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 2):
