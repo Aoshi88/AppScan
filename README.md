@@ -1,43 +1,60 @@
-# [DEV] GTI Public & Private Scanner Scripts
+# AppScan — Scanners & Credential Manager (DEV)
 
-This repository contains two Python scripts for submitting files to VirusTotal's GTI (Global Threat Intelligence) public and private scanning APIs, retrieving scan reports, and verifying file integrity via SHA256 hash.
-
+Collection of Python tools for submitting URLs and files to scanning services and managing API credentials securely.
 
 ## Files
 
-- **GTI Public.py**: Uploads files to VirusTotal's public GTI API for malware scanning. Supports files of any size, retrieves scan reports, and compares the file's hash to a vendor-provided value.
-- **GTI Private.py**: Uploads files to VirusTotal's private GTI API with additional sandboxing options (e.g., internet access, locale, TLS interception). Retrieves detailed sandbox verdicts and confidence levels.
-- **Set API.py**: Utility script for securely configuring the VirusTotal API key. Run this script to add or change the API key used by the scanner scripts, ensuring credentials are not hardcoded or exposed in source files.
+- `GTI Public.py` — Upload files to VirusTotal (public GTI) for malware scanning; supports standard and large-file workflows and retrieves analysis reports.
+- `GTI Private.py` — Upload files to VirusTotal private GTI / sandbox with additional sandbox options and detailed verdict retrieval.
+- `Set API.py` — Interactive credential manager. Configures credentials for:
+  - Cloudflare URL Scanner (`svc_cloudflare_urlscanner`)
+  - URLSCAN.io (`svc_urlscan_io`)
+  - GTI Enterprise (`svc_gti_enterprise`)
+- `urlscan_io.py` — Submit URLs to URLSCAN.io, poll for completion, retrieve full reports, and save results to JSON.
+- `cloudflare_radar.py` — Client for Cloudflare URL Scanner API: submit individual or bulk URL scans, and retrieve results.
 
-## Features ##
+## Key Features
 
-- Secure API key management using the `keyring` library.
-- Interactive prompts for file selection, hash verification, and scan/report options.
-- Supports both standard and large file uploads.
-- Saves full scan reports as `virustotal_report.txt`.
-- Hash verification to ensure file integrity.
-- Private scan script allows advanced sandbox configuration.
+- Centralized credential storage via the `keyring` library (no hardcoded keys).
+- Interactive CLI flows for setting, retrieving, and deleting API credentials.
+- URL scanning and result retrieval for URLSCAN.io and Cloudflare URL Scanner.
+- File submission workflows for VirusTotal GTI (public and private), with report retrieval and optional SHA256 hash verification.
+- Save full scan reports to JSON/text files for offline analysis.
 
-## Usage ##
+## Usage
 
-1. Place the script(s) and the file to be scanned in the same directory.
-2. Run the desired script:
-   - For public scan: `python GTI Public.py`
-   - For private scan: `python GTI Private.py`
-3. Follow the prompts to select scan mode, enter file name, and (optionally) provide a SHA256 hash.
-4. For private scans, configure sandbox options as needed.
-5. Retrieve and review the scan report. The full JSON report is saved as `virustotal_report.txt`.
+1. Configure API credentials first by running:
 
-## Requirements ##
+   python "Set API.py"
 
-- Python 3.x
-- `requests` library
-- `keyring` library
+   Follow the prompts to set keys for URLSCAN.io, Cloudflare, and GTI. Credentials are stored in the OS keyring under the service names listed above.
 
-## Notes ##
-- Do **not** use the public scan script for in-house or custom software.
-- Filenames are case-sensitive.
-- For large files (>200MB), select the appropriate mode when prompted.
+2. Use the desired scanner:
 
-## Disclaimer ##
-These scripts are for authorized use only. Ensure you comply with your organization's security policies and VirusTotal's terms of service.
+   - URLSCAN.io interactive submit/retrieve: `python urlscan_io.py`
+   - Cloudflare URL Scanner client: import and use `cloudflare_radar.py` or run any wrapper you have that integrates it.
+   - GTI file scans: `python GTI Public.py` or `python GTI Private.py`
+
+3. Reports are saved to files (JSON or text) by the individual scripts after retrieval.
+
+## Requirements
+
+- Python 3.8+
+- `requests` (HTTP client)
+- `keyring` (secure credential storage)
+
+Install requirements with:
+
+```bash
+pip install requests keyring
+```
+
+## Notes & Security
+
+- Do not share your API keys or commit them into version control.
+- `GTI Public.py` is intended for public VirusTotal submissions — do not use it for internal-only or sensitive builds.
+- Filenames and paths are case-sensitive on some platforms; run scripts from the directory containing target files when prompted.
+
+## License & Disclaimer
+
+Use these tools only in authorized environments and in accordance with the respective services' terms of use. The repository is provided "as-is" with no warranty.
