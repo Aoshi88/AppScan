@@ -43,7 +43,7 @@ class URLScanIOScanner:
         Args:
             timeout: Request timeout in seconds (default: 30)
             max_wait: Maximum time to wait for scan completion in seconds (default: 600)
-            poll_interval: Interval between polls in seconds (default: 2)
+            poll_interval: Interval between polls in seconds (default: 30)
         """
         self.timeout = timeout
         self.max_wait = max_wait
@@ -224,7 +224,7 @@ class URLScanIOScanner:
         poll_count = 0
         
         print(f"\n[*] Waiting for scan to complete (max {self.max_wait}s)...")
-        print(f"[*] Initial wait before polling: 10s...")
+        print(f"[*] Initial wait before polling: 30s...")
         time.sleep(10)
         
         while True:
@@ -348,9 +348,12 @@ def save_results(results: Dict[str, Any], filename: Optional[str] = None) -> boo
     """Save scan results to JSON file"""
     try:
         if not filename:
-            uuid = results.get('uuid', 'unknown')
+            uuid = results.get('uuid')
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"urlscan_results_{uuid}_{timestamp}.json"
+            if uuid:
+                filename = f"urlscan_results_{uuid}_{timestamp}.json"
+            else:
+                filename = f"urlscan_results_{timestamp}.json"
         
         with open(filename, 'w') as f:
             json.dump(results, f, indent=2)
