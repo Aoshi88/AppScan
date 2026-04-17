@@ -43,7 +43,7 @@ class URLScanIOScanner:
         Args:
             timeout: Request timeout in seconds (default: 30)
             max_wait: Maximum time to wait for scan completion in seconds (default: 600)
-            poll_interval: Interval between polls in seconds (default: 2)
+            poll_interval: Interval between polls in seconds (default: 30)
         """
         self.timeout = timeout
         self.max_wait = max_wait
@@ -138,6 +138,7 @@ class URLScanIOScanner:
             if uuid:
                 print(f"[+] Scan submitted successfully")
                 print(f"    UUID: {uuid}")
+                print(f"    Result URL: {self.BASE_URL}/api/v1/result/{uuid}/")
                 return uuid
             else:
                 print(f"[-] Failed to get UUID from response: {result}")
@@ -175,6 +176,13 @@ class URLScanIOScanner:
             response.raise_for_status()
             return response.json()
             
+        except requests.exceptions.HTTPError as e:
+            # 404 means the scan is still processing
+            if e.response.status_code == 404:
+                return None
+            else:
+                print(f"[-] Error retrieving results: HTTP {e.response.status_code} - {e.response.reason}")
+                return None
         except requests.exceptions.RequestException as e:
             print(f"[-] Error retrieving results: {e}")
             return None
@@ -224,7 +232,7 @@ class URLScanIOScanner:
         poll_count = 0
         
         print(f"\n[*] Waiting for scan to complete (max {self.max_wait}s)...")
-        print(f"[*] Initial wait before polling: 10s...")
+        print(f"[*] Initial wait before polling: 30s...")
         time.sleep(10)
         
         while True:
@@ -245,15 +253,15 @@ class URLScanIOScanner:
                     else:
                         print(f"[*] Scan in progress...")
                 else:
-                    print(f"[*] Waiting for scan results...")
+                    print(f"[*] Scan is still processing...")
                 
                 poll_count += 1
                 if elapsed < self.max_wait:
-                    time.sleep(2)
+                    time.sleep(10)
                 
             except Exception as e:
                 print(f"[-] Error during polling: {e}")
-                time.sleep(2)
+                time.sleep(10)
     
     def scan_url(self, url: str, visibility: str = "public", country: Optional[str] = None,
                 tags: Optional[List[str]] = None, referer: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -348,9 +356,12 @@ def save_results(results: Dict[str, Any], filename: Optional[str] = None) -> boo
     """Save scan results to JSON file"""
     try:
         if not filename:
-            uuid = results.get('uuid', 'unknown')
+            uuid = results.get('uuid')
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"urlscan_results_{uuid}_{timestamp}.json"
+            if uuid:
+                filename = f"urlscan_results_{uuid}_{timestamp}.json"
+            else:
+                filename = f"urlscan_results_{timestamp}.json"
         
         with open(filename, 'w') as f:
             json.dump(results, f, indent=2)
