@@ -150,9 +150,7 @@ class CloudflareURLScanner:
 
         # Polling mode
         for poll_count in range(max_polls):
-             if not url.startswith(('https://', 'http://')):
-                raise ValueError("URL must start with https:// or http://")
-                response = requests.get(url, headers=self.headers)
+            response = requests.get(url, headers=self.headers)
 
             if response.status_code == 200:
                 print(f"Scan completed after {poll_count} polls")
@@ -199,12 +197,12 @@ class CloudflareURLScanner:
         return response_data
 
 
-def get_api_credentials_from_keyring(service_name: str = "svc_urlscanner") -> tuple[str, str]:
+def get_api_credentials_from_keyring(service_name: str = "svc_cloudflare_urlscanner") -> tuple[str, str]:
     """
     Retrieve Cloudflare API credentials from keyring.
     
     Args:
-        service_name: The service name in keyring (default: "svc_urlscanner")
+        service_name: The service name in keyring (default: "svc_cloudflare_urlscanner")
     
     Returns:
         Tuple of (api_token, account_id)
@@ -341,20 +339,43 @@ def get_scan_result(scanner: CloudflareURLScanner):
             print(f"  Success: {task.get('success')}")
             print(f"  URL: {task.get('url')}")
             
+            # Display verdict
+            verdicts = result.get('verdicts', {})
+            if verdicts:
+                print(f"\n  Verdict:")
+                if verdicts.get('overall'):
+                    print(f"    Overall: {verdicts['overall'].get('verdict', 'N/A')}")
+                    if verdicts['overall'].get('score') is not None:
+                        print(f"    Score: {verdicts['overall'].get('score')}")
+                
+                malicious = verdicts.get('malicious')
+                if malicious is not None:
+                    print(f"    Malicious: {malicious}")
+                
+                phishing = verdicts.get('phishing')
+                if phishing is not None:
+                    print(f"    Phishing: {phishing}")
+            
             # Show additional details if scan is complete
             if task.get('success'):
                 page = result.get('page', {})
                 meta = result.get('meta', {})
-                print(f"\n  Page URL: {page.get('url')}")
-                print(f"  Country: {page.get('country')}")
-                print(f"  IP Address: {page.get('ip')}")
+                print(f"\n  Page Details:")
+                print(f"    Page URL: {page.get('url')}")
+                print(f"    Country: {page.get('country')}")
+                print(f"    IP Address: {page.get('ip')}")
                 
                 if meta.get('processors'):
-                    print(f"  Technologies: {len(meta['processors'].get('wappa', []))} detected")
+                    print(f"    Technologies: {len(meta['processors'].get('wappa', []))} detected")
             
-            full_output = input("\nDisplay full result JSON? (yes/no) [default: no]: ").strip().lower() in ["yes", "y"]
-            if full_output:
-                print(json.dumps(result, indent=2))
+            # Write full result to JSON file
+            json_filename = f"cloudflare_scan_result_{scan_id}.json"
+            try:
+                with open(json_filename, 'w') as f:
+                    json.dump(result, f, indent=2)
+                print(f"\n✓ Full result saved to: {json_filename}")
+            except IOError as io_err:
+                print(f"\n⚠ Warning: Could not save JSON file: {io_err}")
         else:
             print(f"  Response: {result}")
         
