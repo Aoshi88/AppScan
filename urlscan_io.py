@@ -138,6 +138,7 @@ class URLScanIOScanner:
             if uuid:
                 print(f"[+] Scan submitted successfully")
                 print(f"    UUID: {uuid}")
+                print(f"    Result URL: {self.BASE_URL}/api/v1/result/{uuid}/")
                 return uuid
             else:
                 print(f"[-] Failed to get UUID from response: {result}")
@@ -175,6 +176,13 @@ class URLScanIOScanner:
             response.raise_for_status()
             return response.json()
             
+        except requests.exceptions.HTTPError as e:
+            # 404 means the scan is still processing
+            if e.response.status_code == 404:
+                return None
+            else:
+                print(f"[-] Error retrieving results: HTTP {e.response.status_code} - {e.response.reason}")
+                return None
         except requests.exceptions.RequestException as e:
             print(f"[-] Error retrieving results: {e}")
             return None
@@ -245,15 +253,15 @@ class URLScanIOScanner:
                     else:
                         print(f"[*] Scan in progress...")
                 else:
-                    print(f"[*] Waiting for scan results...")
+                    print(f"[*] Scan is still processing...")
                 
                 poll_count += 1
                 if elapsed < self.max_wait:
-                    time.sleep(2)
+                    time.sleep(10)
                 
             except Exception as e:
                 print(f"[-] Error during polling: {e}")
-                time.sleep(2)
+                time.sleep(10)
     
     def scan_url(self, url: str, visibility: str = "public", country: Optional[str] = None,
                 tags: Optional[List[str]] = None, referer: Optional[str] = None) -> Optional[Dict[str, Any]]:
