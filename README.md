@@ -6,6 +6,7 @@ Collection of Python tools for submitting URLs and files to scanning services an
 
 - `GTI Public.py` — Upload files to VirusTotal (public GTI) for malware scanning; supports standard and large-file workflows and retrieves analysis reports.
 - `GTI Private.py` — Upload files to VirusTotal private GTI / sandbox with additional sandbox options and detailed verdict retrieval.
+ - `GTI URL.py` — Submit URLs to VirusTotal (GTI) for scanning, retrieve URL analysis reports, request rescans, and run batch URL processing.
 - `Set API.py` — Interactive credential manager. Configures credentials for:
   - Cloudflare URL Scanner (`svc_cloudflare_urlscanner`)
   - URLSCAN.io (`svc_urlscan_io`)
@@ -34,6 +35,7 @@ Collection of Python tools for submitting URLs and files to scanning services an
    - URLSCAN.io interactive submit/retrieve: `python urlscan_io.py`
    - Cloudflare URL Scanner client: import and use `cloudflare_radar.py` or run any wrapper you have that integrates it.
    - GTI file scans: `python GTI Public.py` or `python GTI Private.py`
+   - GTI URL scans (submit URLs / retrieve reports): `python "GTI URL.py"`
 
 3. Reports are saved to files (JSON or text) by the individual scripts after retrieval.
 
@@ -48,6 +50,26 @@ Install requirements with:
 ```bash
 pip install requests keyring
 ```
+
+## GTI URL.py — URL scanning (VirusTotal API v3)
+
+- Purpose: Submit URLs to VirusTotal for analysis, retrieve existing URL reports, request rescans, and batch-process lists of URLs from a file.
+- Entry point: run the script interactively with `python "GTI URL.py"` and choose from the menu options (Submit, Get report, Rescan, Analysis by ID, Batch file processing).
+- Batch file format: a plain text file with one URL per line. When prompted for batch processing, choose operation `1` (submit) or `2` (get reports).
+- API key: The script reads the VirusTotal API key from the system keyring under service name `svc_gti_enterprise` and account `gti_api_account`. Use `python "Set API.py"` to configure the key if not present.
+- Rate limiting: the script adds small delays when batch-processing to reduce the chance of hitting API rate limits; please respect VirusTotal's API usage terms.
+
+Example
+
+```bash
+python "GTI URL.py"
+# Then follow the interactive menu to submit a URL or process a batch file.
+```
+
+Notes
+
+- The script depends on `requests` and `keyring` (see Requirements section).  
+- Saved results from batch runs are written to `scan_results.json` when you choose to save them.
 
 ## Notes & Security
 
