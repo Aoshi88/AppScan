@@ -27,6 +27,7 @@ import sys
 import keyring
 from typing import Optional, Dict, Any, List
 from datetime import datetime
+from pathlib import Path
 
 
 class URLScanIOScanner:
@@ -36,20 +37,20 @@ class URLScanIOScanner:
     SERVICE_NAME = "svc_urlscan_io"
     API_KEY_NAME = "api_key"
     
-    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 30):
+    def __init__(self, timeout: int = 30, max_wait: int = 600, poll_interval: int = 10):
         """
         Initialize URLSCAN.io scanner client
         
         Args:
             timeout: Request timeout in seconds (default: 30)
             max_wait: Maximum time to wait for scan completion in seconds (default: 600)
-            poll_interval: Interval between polls in seconds (default: 30)
+            poll_interval: Interval between polls in seconds (default: 10)
         """
         self.timeout = timeout
         self.max_wait = max_wait
         self.poll_interval = poll_interval
         self.api_key = None
-        self.headers = None
+        self.session = requests.Session()
         
         # Load API key from keyring
         self._load_api_key()
@@ -60,16 +61,15 @@ class URLScanIOScanner:
             self.api_key = keyring.get_password(self.SERVICE_NAME, self.API_KEY_NAME)
             
             if not self.api_key:
-                print(f"❌ Error: No API key found in keyring")
-                print(f"   Please configure your API key using 'Set API - URLScan.py'")
+                print("❌ Error: No API key found in keyring")
+                print("   Please configure your API key using 'Set API - URLScan.py'")
                 return False
             
-            self.headers = {
+            self.session.headers.update({
                 "API-Key": self.api_key,
                 "Content-Type": "application/json"
-            }
-            
-            print(f"✅ API key loaded from keyring")
+            })
+            print("✅ API key loaded from keyring")
             return True
             
         except Exception as e:
@@ -124,33 +124,26 @@ class URLScanIOScanner:
         
         try:
             print(f"[*] Submitting URL for scanning: {url}")
-            response = requests.post(
-                f"{self.BASE_URL}/api/v1/scan",
-                json=payload,
-                headers=self.headers,
-                timeout=self.timeout
-            )
+            response = self.session.post(f"{self.BASE_URL}/api/v1/scan", json=payload, timeout=self.timeout)
             response.raise_for_status()
             
             result = response.json()
             uuid = result.get("uuid")
-            
             if uuid:
-                print(f"[+] Scan submitted successfully")
-                print(f"    UUID: {uuid}")
-                print(f"    Result URL: {self.BASE_URL}/api/v1/result/{uuid}/")
+                print(f"[+] Scan submitted successfully — UUID: {uuid}")
                 return uuid
-            else:
-                print(f"[-] Failed to get UUID from response: {result}")
-                return None
+            
+            print(f"[-] No UUID in response: {result}")
+            return None
                 
         except requests.exceptions.RequestException as e:
             print(f"[-] Error submitting URL: {e}")
-            if hasattr(e, 'response') and e.response is not None:
+            resp = getattr(e, 'response', None)
+            if resp is not None:
                 try:
-                    print(f"    Response: {e.response.json()}")
-                except:
-                    print(f"    Response: {e.response.text}")
+                    print(f"    Response: {resp.json()}")
+                except Exception:
+                    print(f"    Response: {resp.text}")
             return None
     
     def get_results(self, uuid: str) -> Optional[Dict[str, Any]]:
@@ -168,21 +161,13 @@ class URLScanIOScanner:
             return None
         
         try:
-            response = requests.get(
-                f"{self.BASE_URL}/api/v1/result/{uuid}/",
-                headers=self.headers,
-                timeout=self.timeout
-            )
+            response = self.session.get(f"{self.BASE_URL}/api/v1/result/{uuid}/", timeout=self.timeout)
             response.raise_for_status()
             return response.json()
-            
         except requests.exceptions.HTTPError as e:
-            # 404 means the scan is still processing
-            if e.response.status_code == 404:
-                return None
-            else:
-                print(f"[-] Error retrieving results: HTTP {e.response.status_code} - {e.response.reason}")
-                return None
+            if e.response.status_code != 404:
+                print(f"[-] Error retrieving results: HTTP {e.response.status_code}")
+            return None
         except requests.exceptions.RequestException as e:
             print(f"[-] Error retrieving results: {e}")
             return None
@@ -202,21 +187,18 @@ class URLScanIOScanner:
             print(f"[*] Retrieving scan report for UUID: {uuid}")
         
         results = self.get_results(uuid)
-        
-        if results:
-            if "page" in results or "data" in results:
-                if verbose:
-                    print(f"[+] Scan report retrieved successfully!")
-                return results
-            else:
-                if verbose:
-                    print(f"[*] Scan is still in progress or pending")
-                    print(f"   Available fields: {', '.join(results.keys())}")
-                return results
-        else:
+        if not results:
             if verbose:
                 print(f"[-] Failed to retrieve scan report for UUID: {uuid}")
             return None
+        
+        if verbose:
+            if "page" in results or "data" in results:
+                print("[+] Scan report retrieved successfully!")
+            else:
+                print("[*] Scan is pending or in-progress")
+        
+        return results
     
     def wait_for_results(self, uuid: str) -> Optional[Dict[str, Any]]:
         """
@@ -229,39 +211,21 @@ class URLScanIOScanner:
             Dictionary containing scan results, or None if timeout/failed
         """
         start_time = time.time()
-        poll_count = 0
-        
         print(f"\n[*] Waiting for scan to complete (max {self.max_wait}s)...")
-        print(f"[*] Initial wait before polling: 30s...")
-        time.sleep(10)
         
         while True:
             elapsed = time.time() - start_time
-            
             if elapsed > self.max_wait:
                 print(f"[-] Timeout waiting for results (exceeded {self.max_wait} seconds)")
                 return None
             
-            try:
-                print(f"[*] Checking results... (attempt {poll_count + 1}, elapsed: {int(elapsed)}s)")
-                results = self.get_results(uuid)
-                
-                if results:
-                    if "page" in results or "data" in results:
-                        print(f"[+] Scan completed successfully!")
-                        return results
-                    else:
-                        print(f"[*] Scan in progress...")
-                else:
-                    print(f"[*] Scan is still processing...")
-                
-                poll_count += 1
-                if elapsed < self.max_wait:
-                    time.sleep(10)
-                
-            except Exception as e:
-                print(f"[-] Error during polling: {e}")
-                time.sleep(10)
+            print(f"[*] Checking results... (elapsed: {int(elapsed)}s)")
+            results = self.get_results(uuid)
+            if results and ("page" in results or "data" in results):
+                print("[+] Scan completed successfully!")
+                return results
+            
+            time.sleep(self.poll_interval)
     
     def scan_url(self, url: str, visibility: str = "public", country: Optional[str] = None,
                 tags: Optional[List[str]] = None, referer: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -279,19 +243,13 @@ class URLScanIOScanner:
             Dictionary containing scan results, or None if failed
         """
         uuid = self.submit_url(url, visibility=visibility, country=country, tags=tags, referer=referer)
-        
         if not uuid:
-            print(f"[-] Failed to submit URL")
             return None
         
         results = self.wait_for_results(uuid)
-        
         if results:
-            print(f"\n[+] Scan results retrieved successfully")
-            return results
-        else:
-            print(f"[-] Failed to retrieve scan results")
-            return None
+            print("\n[+] Scan results retrieved successfully")
+        return results
     
 
 
@@ -375,22 +333,15 @@ def save_results(results: Dict[str, Any], filename: Optional[str] = None) -> boo
 
 def get_urls_from_input() -> List[str]:
     """Get URLs from user input"""
-    print("\n📝 Enter URLs (one per line, press Enter twice when done):")
-    urls = []
-    blank_lines = 0
-    
+    print("\n📝 Enter URLs (one per line). Submit an empty line to finish:")
+    urls: List[str] = []
     while True:
-        url = input().strip()
-        if not url:
-            blank_lines += 1
-            if blank_lines >= 2:
-                break
-        else:
-            if not url.startswith(("http://", "https://")):
-                url = "https://" + url
-            urls.append(url)
-            blank_lines = 0
-    
+        line = input().strip()
+        if not line:
+            break
+        if not line.startswith(("http://", "https://")):
+            line = "https://" + line
+        urls.append(line)
     return urls
 
 
@@ -417,21 +368,26 @@ def retrieve_scan_by_uuid(scanner: 'URLScanIOScanner', uuid: str) -> bool:
 
 def get_urls_from_file(filename: str) -> List[str]:
     """Read URLs from a text file (one URL per line)"""
+    path = Path(filename).expanduser()
+    if not path.is_file():
+        print(f"❌ File not found: {filename}")
+        return []
+    
+    urls: List[str] = []
     try:
-        urls = []
-        with open(filename, 'r') as f:
+        with path.open('r', encoding='utf-8') as f:
             for line in f:
                 url = line.strip()
-                if url and not url.startswith('#'):  # Skip empty lines and comments
-                    if not url.startswith(("http://", "https://")):
-                        url = "https://" + url
-                    urls.append(url)
-        
+                if not url or url.startswith('#'):
+                    continue
+                if not url.startswith(("http://", "https://")):
+                    url = "https://" + url
+                urls.append(url)
         print(f"✅ Loaded {len(urls)} URL(s) from {filename}")
-        return urls
     except Exception as e:
         print(f"❌ Error reading file {filename}: {e}")
-        return []
+    
+    return urls
 
 
 def get_scan_report_by_uuid(uuid: str, display_summary: bool = True, save_to_file: bool = True) -> Optional[Dict[str, Any]]:
