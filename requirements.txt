@@ -1,0 +1,15 @@
+requests>=2.34.2
+keyring>=25.7.0
+secretstorage>=3.14.1
+kwallet-secrets>=0.1.0
+pass-secrets-client>=0.1.0
+
+# Optional dependencies for Linux credential storage (choose one):
+# For Secret Service (most common on GNOME/systemd):
+# secretstorage>=3.3.1
+# 
+# For KDE Plasma:
+# kwallet-secrets>=0.1.0
+#
+# For pass password manager:
+# pass-secrets-client>=0.1.0
